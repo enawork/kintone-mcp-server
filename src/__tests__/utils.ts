@@ -39,6 +39,7 @@ export const createMockClient = (): KintoneRestAPIClient =>
 export function mockToolCallbackOptions(client?: KintoneRestAPIClient) {
   return {
     client: client || createMockClient(),
+    clientConfig: mockKintoneConfig,
     version: "1.0.0",
   };
 }
