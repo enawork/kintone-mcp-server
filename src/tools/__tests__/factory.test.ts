@@ -1,7 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTool, createToolCallback } from "../factory.js";
 import { z } from "zod";
-import { mockToolCallbackOptions } from "../../__tests__/utils.js";
+import {
+  createMockClient,
+  mockToolCallbackOptions,
+  mockKintoneConfig,
+} from "../../__tests__/utils.js";
+
+vi.mock("../../client/index.js", () => ({
+  getKintoneClientForGuestSpace: vi.fn(),
+}));
 
 describe("createTool", () => {
   it("should create a tool with correct structure", () => {
@@ -105,6 +113,10 @@ describe("createTool", () => {
 });
 
 describe("createToolCallback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("should wrap callback with options", async () => {
     const callback = async (args: any, options: any) => ({
       content: [
@@ -122,5 +134,120 @@ describe("createToolCallback", () => {
     expect(result.content).toEqual([
       { type: "text", text: "Value: test, Version: 1.0.0" },
     ]);
+  });
+
+  it("should use default client when guestSpaceId is not provided", async () => {
+    const defaultClient = createMockClient();
+    const receivedOptions: any[] = [];
+    const callback = async (args: any, options: any) => {
+      receivedOptions.push(options);
+      return {
+        content: [{ type: "text" as const, text: "ok" }],
+      };
+    };
+
+    const options = {
+      client: defaultClient,
+      clientConfig: mockKintoneConfig,
+    };
+    const wrappedCallback = createToolCallback(callback, options);
+    await wrappedCallback({ appId: "1" });
+
+    expect(receivedOptions[0].client).toBe(defaultClient);
+  });
+
+  it("should create guest space client when guestSpaceId is provided", async () => {
+    const { getKintoneClientForGuestSpace } =
+      await import("../../client/index.js");
+    const defaultClient = createMockClient();
+    const guestClient = createMockClient();
+    vi.mocked(getKintoneClientForGuestSpace).mockReturnValue(guestClient);
+
+    const receivedOptions: any[] = [];
+    const callback = async (args: any, options: any) => {
+      receivedOptions.push(options);
+      return {
+        content: [{ type: "text" as const, text: "ok" }],
+      };
+    };
+
+    const options = {
+      client: defaultClient,
+      clientConfig: mockKintoneConfig,
+    };
+    const wrappedCallback = createToolCallback(callback, options);
+    await wrappedCallback({ appId: "1", guestSpaceId: "5" });
+
+    expect(getKintoneClientForGuestSpace).toHaveBeenCalledWith(
+      mockKintoneConfig,
+      "5",
+    );
+    expect(receivedOptions[0].client).toBe(guestClient);
+  });
+
+  it("should strip guestSpaceId from args passed to the callback", async () => {
+    const { getKintoneClientForGuestSpace } =
+      await import("../../client/index.js");
+    vi.mocked(getKintoneClientForGuestSpace).mockReturnValue(
+      createMockClient(),
+    );
+
+    const receivedArgs: any[] = [];
+    const callback = async (args: any, _options: any) => {
+      receivedArgs.push(args);
+      return {
+        content: [{ type: "text" as const, text: "ok" }],
+      };
+    };
+
+    const options = {
+      client: createMockClient(),
+      clientConfig: mockKintoneConfig,
+    };
+    const wrappedCallback = createToolCallback(callback, options);
+    await wrappedCallback({ appId: "1", guestSpaceId: "5" });
+
+    expect(receivedArgs[0]).toEqual({ appId: "1" });
+    expect(receivedArgs[0]).not.toHaveProperty("guestSpaceId");
+  });
+
+  it("should use default client when guestSpaceId is empty string", async () => {
+    const defaultClient = createMockClient();
+    const receivedOptions: any[] = [];
+    const callback = async (args: any, options: any) => {
+      receivedOptions.push(options);
+      return {
+        content: [{ type: "text" as const, text: "ok" }],
+      };
+    };
+
+    const options = {
+      client: defaultClient,
+      clientConfig: mockKintoneConfig,
+    };
+    const wrappedCallback = createToolCallback(callback, options);
+    await wrappedCallback({ appId: "1", guestSpaceId: "" });
+
+    expect(receivedOptions[0].client).toBe(defaultClient);
+  });
+
+  it("should use default client when guestSpaceId is undefined", async () => {
+    const defaultClient = createMockClient();
+    const receivedOptions: any[] = [];
+    const callback = async (args: any, options: any) => {
+      receivedOptions.push(options);
+      return {
+        content: [{ type: "text" as const, text: "ok" }],
+      };
+    };
+
+    const options = {
+      client: defaultClient,
+      clientConfig: mockKintoneConfig,
+    };
+    const wrappedCallback = createToolCallback(callback, options);
+    await wrappedCallback({ appId: "1", guestSpaceId: undefined });
+
+    expect(receivedOptions[0].client).toBe(defaultClient);
   });
 });

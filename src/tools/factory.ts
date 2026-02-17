@@ -5,6 +5,7 @@ import type {
   Tool,
   ToolCallbackOptions,
 } from "./types/tool.js";
+import { getKintoneClientForGuestSpace } from "../client/index.js";
 
 export const createTool = <
   InputArgs extends ZodRawShape,
@@ -25,6 +26,21 @@ export const createToolCallback = <InputArgs extends ZodRawShape>(
   callback: KintoneToolCallback<InputArgs>,
   options: ToolCallbackOptions,
 ) => {
-  return (args: z.objectOutputType<InputArgs, ZodTypeAny>) =>
-    callback(args, options);
+  return (args: z.objectOutputType<InputArgs, ZodTypeAny>) => {
+    const { guestSpaceId, ...restArgs } = args as Record<string, unknown>;
+    const effectiveOptions =
+      typeof guestSpaceId === "string" && guestSpaceId.length > 0
+        ? {
+            ...options,
+            client: getKintoneClientForGuestSpace(
+              options.clientConfig,
+              guestSpaceId,
+            ),
+          }
+        : options;
+    return callback(
+      restArgs as z.objectOutputType<InputArgs, ZodTypeAny>,
+      effectiveOptions,
+    );
+  };
 };

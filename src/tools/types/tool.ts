@@ -1,9 +1,11 @@
 import type { KintoneRestAPIClient } from "@kintone/rest-api-client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ZodRawShape, ZodTypeAny, z } from "zod";
+import type { KintoneClientConfig } from "../../client/types/client.js";
 
 export type ToolCallbackOptions = {
   client: KintoneRestAPIClient;
+  clientConfig: KintoneClientConfig;
   attachmentsDir?: string;
 };
 

@@ -272,3 +272,59 @@ describe("getKintoneClient", () => {
     });
   });
 });
+
+describe("getKintoneClientForGuestSpace", () => {
+  let getKintoneClientForGuestSpace: any;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    const module = await import("../index.js");
+    getKintoneClientForGuestSpace = module.getKintoneClientForGuestSpace;
+  });
+
+  it("should create KintoneRestAPIClient with guestSpaceId", () => {
+    const mockClientInstance = { app: { getApp: vi.fn() } };
+    mockKintoneClient.mockReturnValue(mockClientInstance);
+
+    const result = getKintoneClientForGuestSpace(mockKintoneConfig, "5");
+
+    expect(mockKintoneClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: mockKintoneConfig.KINTONE_BASE_URL,
+        auth: {
+          username: mockKintoneConfig.KINTONE_USERNAME,
+          password: mockKintoneConfig.KINTONE_PASSWORD,
+        },
+        guestSpaceId: "5",
+      }),
+    );
+    expect(result).toBe(mockClientInstance);
+  });
+
+  it("should cache guest space clients by guestSpaceId", () => {
+    const mockClientInstance = { app: { getApp: vi.fn() } };
+    mockKintoneClient.mockReturnValue(mockClientInstance);
+
+    const client1 = getKintoneClientForGuestSpace(mockKintoneConfig, "5");
+    const client2 = getKintoneClientForGuestSpace(mockKintoneConfig, "5");
+
+    expect(client1).toBe(client2);
+    expect(mockKintoneClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("should create separate clients for different guestSpaceIds", () => {
+    const mockClientInstance1 = { app: { getApp: vi.fn() } };
+    const mockClientInstance2 = { app: { getApp: vi.fn() } };
+    mockKintoneClient
+      .mockReturnValueOnce(mockClientInstance1)
+      .mockReturnValueOnce(mockClientInstance2);
+
+    const client1 = getKintoneClientForGuestSpace(mockKintoneConfig, "5");
+    const client2 = getKintoneClientForGuestSpace(mockKintoneConfig, "10");
+
+    expect(client1).toBe(mockClientInstance1);
+    expect(client2).toBe(mockClientInstance2);
+    expect(mockKintoneClient).toHaveBeenCalledTimes(2);
+  });
+});

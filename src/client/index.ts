@@ -5,16 +5,11 @@ import { readFileSync } from "fs";
 import type { KintoneClientConfig } from "./types/client.js";
 
 let client: KintoneRestAPIClient | null = null;
+const guestSpaceClients: Map<string, KintoneRestAPIClient> = new Map();
 
 export type { KintoneClientConfig };
 
-export const getKintoneClient = (
-  config: KintoneClientConfig,
-): KintoneRestAPIClient => {
-  if (client) {
-    return client;
-  }
-
+const buildClientConstructorOptions = (config: KintoneClientConfig) => {
   const {
     KINTONE_BASE_URL,
     KINTONE_USERNAME,
@@ -28,15 +23,13 @@ export const getKintoneClient = (
     USER_AGENT,
   } = config;
 
-  const authParams = buildAuthParams({
-    username: KINTONE_USERNAME,
-    password: KINTONE_PASSWORD,
-    apiToken: KINTONE_API_TOKEN,
-  });
-
-  client = new KintoneRestAPIClient({
+  return {
     baseUrl: KINTONE_BASE_URL,
-    ...authParams,
+    ...buildAuthParams({
+      username: KINTONE_USERNAME,
+      password: KINTONE_PASSWORD,
+      apiToken: KINTONE_API_TOKEN,
+    }),
     ...buildBasicAuthParam({
       basicAuthUsername: KINTONE_BASIC_AUTH_USERNAME,
       basicAuthPassword: KINTONE_BASIC_AUTH_PASSWORD,
@@ -47,9 +40,37 @@ export const getKintoneClient = (
       pfxFilePath: KINTONE_PFX_FILE_PATH,
       pfxPassword: KINTONE_PFX_FILE_PASSWORD,
     }),
-  });
+  };
+};
+
+export const getKintoneClient = (
+  config: KintoneClientConfig,
+): KintoneRestAPIClient => {
+  if (client) {
+    return client;
+  }
+
+  client = new KintoneRestAPIClient(buildClientConstructorOptions(config));
 
   return client;
+};
+
+export const getKintoneClientForGuestSpace = (
+  config: KintoneClientConfig,
+  guestSpaceId: string,
+): KintoneRestAPIClient => {
+  const cached = guestSpaceClients.get(guestSpaceId);
+  if (cached) {
+    return cached;
+  }
+
+  const guestClient = new KintoneRestAPIClient({
+    ...buildClientConstructorOptions(config),
+    guestSpaceId,
+  });
+  guestSpaceClients.set(guestSpaceId, guestClient);
+
+  return guestClient;
 };
 
 const buildAuthParams = (option: {
